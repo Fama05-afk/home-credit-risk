@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: stg_application_train
+    description: "Cleaned application data — renaming, casts, sentinel values handled"
+    columns:
+      - name: loan_id
+        description: "Loan application ID (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: target
+        description: "Repayment difficulty label"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: income_amount
+        tests:
+          - not_null
+      - name: credit_amount
+        tests:
+          - not_null
+      - name: age_years
+        tests:
+          - not_null
+
+  - name: stg_bureau
+    description: "Cleaned bureau data"
+    columns:
+      - name: bureau_id
+        description: "Bureau credit record ID (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: loan_id
+        description: "FK to application (not unique — one client can have several credits)"
+        tests:
+          - not_null
+
+  - name: stg_bureau_balance
+    description: "Cleaned bureau balance data"
+    columns:
+      - name: bureau_id
+        description: "FK to bureau (not unique — multiple months per record)"
+        tests:
+          - not_null
+
+  - name: stg_previous_application
+    description: "Cleaned previous application data"
+    columns:
+      - name: prev_application_id
+        description: "Previous application ID (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: loan_id
+        description: "FK to application (not unique)"
+        tests:
+          - not_null
+
+  - name: stg_pos_cash_balance
+    description: "Cleaned POS and cash balance data"
+    columns:
+      - name: prev_application_id
+        description: "FK to previous application (not unique — multiple months)"
+        tests:
+          - not_null
+      - name: loan_id
+        tests:
+          - not_null
+
+  - name: stg_installments_payments
+    description: "Cleaned installments payment data"
+    columns:
+      - name: prev_application_id
+        tests:
+          - not_null
+      - name: loan_id
+        tests:
+          - not_null
+
+  - name: stg_credit_card_balance
+    description: "Cleaned credit card balance data"
+    columns:
+      - name: prev_application_id
+        tests:
+          - not_null
+      - name: loan_id
+        tests:
+          - not_null

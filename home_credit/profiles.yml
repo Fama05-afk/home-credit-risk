@@ -1,0 +1,13 @@
+home_credit:
+  outputs:
+    dev:
+      type: duckdb
+      path: ../data/dbt_output/dev.duckdb
+      threads: 1
+
+    prod:
+      type: duckdb
+      path: ../data/dbt_output/prod.duckdb
+      threads: 4
+
+  target: dev

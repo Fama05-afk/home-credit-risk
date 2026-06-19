@@ -1,0 +1,54 @@
+**/nul
+# Environnement virtuel
+.venv/
+
+# Données brutes (trop lourdes pour GitHub)
+data/raw/
+data/dbt_output/
+data/features/
+
+# MLflow
+mlruns/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Variables d'environnement
+.env
+
+# VS Code
+.vscode/
+
+# Kaggle
+kaggle.json
+
+# Scratch / logs
+catboost_info/
+logs/
+explore.py
+check_cols.py
+
+
+# Modeles experimentaux, non utilises en production
+models/lgbm_smote.joblib
+models/lgbm_tuned.joblib
+models/lgbm_tuned_pipeline.joblib
+models/mlp_baseline.joblib
+models/mlp_pytorch.joblib
+models/mlp_pytorch_tuned.joblib
+models/mlp_pytorch_v2.joblib
+models/stacking_full_model.joblib
+models/ordinal_encoder.joblib
+models/target_encoder.joblib
+
+# Scripts de debug/scratch
+src/check_model.py
+src/cv_compare.py
+src/debug_pipeline.py
+src/fit_encoders.py
+src/test_features.py
+src/train_tabnet.py
+src/train_target_enc.py

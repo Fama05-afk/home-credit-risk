@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: mart_credit_features
+    description: "Final feature table — 79 features ML-ready, one row per application"
+    columns:
+      - name: loan_id
+        description: "Loan application ID — unique, one row per applicant"
+        tests:
+          - unique
+          - not_null
+      - name: target
+        description: "Repayment difficulty (0 = no difficulty, 1 = difficulty)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: income_amount
+        description: "Total income declared by applicant"
+        tests:
+          - not_null
+      - name: credit_amount
+        description: "Credit amount of the loan"
+        tests:
+          - not_null
+      - name: age_years
+        description: "Age of applicant in years"
+        tests:
+          - not_null
+      - name: age_group
+        description: "Age bucket used for ordinal encoding"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['young', 'adult', 'senior']
+      - name: owns_car
+        description: "Binary flag — applicant owns a car (0/1)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: owns_realty
+        description: "Binary flag — applicant owns real estate (0/1)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]

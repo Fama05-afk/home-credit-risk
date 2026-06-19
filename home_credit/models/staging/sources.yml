@@ -1,0 +1,87 @@
+version: 2
+
+sources:
+  - name: home_credit_raw
+    description: "Raw CSV files from Kaggle Home Credit dataset"
+    tables:
+
+      - name: application_train
+        description: "Main training table with loan applications"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/application_train.csv')"
+        columns:
+          - name: SK_ID_CURR
+            description: "Loan application ID (primary key)"
+            tests:
+              - unique
+              - not_null
+          - name: TARGET
+            description: "Repayment difficulty label"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [0, 1]
+
+      - name: bureau
+        description: "Credit Bureau data for previous credits"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/bureau.csv')"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null
+          - name: SK_ID_BUREAU
+            description: "Bureau credit record ID (primary key)"
+            tests:
+              - unique
+              - not_null
+
+      - name: bureau_balance
+        description: "Monthly balance of Credit Bureau credits"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/bureau_balance.csv')"
+        columns:
+          - name: SK_ID_BUREAU
+            tests:
+              - not_null
+
+      - name: previous_application
+        description: "Previous loan applications at Home Credit"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/previous_application.csv')"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null
+          - name: SK_ID_PREV
+            description: "Previous application ID (primary key)"
+            tests:
+              - unique
+              - not_null
+
+      - name: POS_CASH_balance
+        description: "Monthly balance of previous POS and cash loans"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/POS_CASH_balance.csv')"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null
+
+      - name: installments_payments
+        description: "Repayment history of previous loans"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/installments_payments.csv')"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null
+
+      - name: credit_card_balance
+        description: "Monthly balance of previous credit cards"
+        meta:
+          external_location: "read_csv_auto('C:/Users/Fama/home-credit-risk/data/raw/credit_card_balance.csv')"
+        columns:
+          - name: SK_ID_CURR
+            tests:
+              - not_null

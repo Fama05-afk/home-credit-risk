@@ -1,0 +1,26 @@
+{
+  "model_name": "stacking_model",
+  "by_group": {
+    "selection_rate": {
+      "F": 0.1043,
+      "M": 0.1635
+    },
+    "false_positive_rate": {
+      "F": 0.084,
+      "M": 0.1267
+    },
+    "false_negative_rate": {
+      "F": 0.6255,
+      "M": 0.512
+    }
+  },
+  "difference": {
+    "selection_rate": 0.0592,
+    "false_positive_rate": 0.0428,
+    "false_negative_rate": 0.1136
+  },
+  "auc_by_gender": {
+    "F": 0.7723,
+    "M": 0.7812
+  }
+}
