@@ -1,10 +1,13 @@
 import joblib
 import mlflow
-import mlflow.catboost
+import mlflow.sklearn
 import pandas as pd
 from pathlib import Path
 from catboost import CatBoostClassifier
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import roc_auc_score
+from model_utils import FillNACategorical
 
 PROCESSED_DIR = Path("data/processed")
 MODELS_DIR    = Path("models")
@@ -12,6 +15,7 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 TARGET        = "target"
 SENSITIVE_COL = "gender_clean"
+
 
 train = pd.read_parquet(PROCESSED_DIR / "train.parquet")
 val   = pd.read_parquet(PROCESSED_DIR / "val.parquet")
@@ -26,13 +30,6 @@ print(f"Train: {X_train.shape[0]:,} · Val: {X_val.shape[0]:,}")
 cat_features = X_train.select_dtypes(include="object").columns.tolist()
 print(f"Categorical features ({len(cat_features)}): {cat_features}")
 
-for col in cat_features:
-    X_train[col] = X_train[col].fillna("Unknown")
-    X_val[col]   = X_val[col].fillna("Unknown")
-
-mlflow.set_tracking_uri("mlruns")
-mlflow.set_experiment("home_credit_risk")
-
 params = {
     "iterations":            1000,
     "learning_rate":         0.05,
@@ -44,17 +41,28 @@ params = {
     "early_stopping_rounds": 50,
 }
 
+model = CatBoostClassifier(**params)
+
+pipeline = Pipeline([
+    ("fillna", FillNACategorical(cat_features)),
+    ("model",  model),
+])
+
+X_val_filled = pipeline.named_steps["fillna"].transform(X_val)
+
+mlflow.set_tracking_uri("mlruns")
+mlflow.set_experiment("home_credit_risk")
+
 with mlflow.start_run(run_name="catboost_baseline"):
-    model = CatBoostClassifier(**params)
-    model.fit(
+    pipeline.fit(
         X_train, y_train,
-        cat_features=cat_features,
-        eval_set=(X_val, y_val),
+        model__cat_features=cat_features,
+        model__eval_set=(X_val_filled, y_val),
     )
-    auc = roc_auc_score(y_val, model.predict_proba(X_val)[:, 1])
+    auc = roc_auc_score(y_val, pipeline.predict_proba(X_val)[:, 1])
     mlflow.log_params(params)
     mlflow.log_metric("roc_auc_val", auc)
     mlflow.log_metric("best_iteration", model.best_iteration_)
-    mlflow.catboost.log_model(model, "model")
-    joblib.dump(model, MODELS_DIR / "catboost_baseline.joblib")
+    mlflow.sklearn.log_model(pipeline, name="pipeline")
+    joblib.dump(pipeline, MODELS_DIR / "catboost_baseline.joblib")
     print(f"CatBoost ROC-AUC (val): {auc:.4f}  (best iteration: {model.best_iteration_})")

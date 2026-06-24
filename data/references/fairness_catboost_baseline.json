@@ -1,0 +1,26 @@
+{
+  "model_name": "catboost_baseline",
+  "by_group": {
+    "selection_rate": {
+      "F": 0.0912,
+      "M": 0.1436
+    },
+    "false_positive_rate": {
+      "F": 0.0722,
+      "M": 0.1091
+    },
+    "false_negative_rate": {
+      "F": 0.6562,
+      "M": 0.551
+    }
+  },
+  "difference": {
+    "selection_rate": 0.0525,
+    "false_positive_rate": 0.0369,
+    "false_negative_rate": 0.1052
+  },
+  "auc_by_gender": {
+    "F": 0.7707,
+    "M": 0.7803
+  }
+}

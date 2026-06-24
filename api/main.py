@@ -2,10 +2,13 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import sys
 from fastapi import FastAPI, HTTPException
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Optional
+
+sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 MODELS_DIR    = Path("models")
 REFERENCES    = Path("data/references")
@@ -18,9 +21,8 @@ app = FastAPI(
     version="2.0.0",
 )
 
-bundle       = joblib.load(MODELS_DIR / f"{MODEL_NAME}.joblib")
-threshold    = json.load(open(REFERENCES / f"threshold_{MODEL_NAME}.json"))["threshold"]
-cat_features = bundle["cat_features"]
+model     = joblib.load(MODELS_DIR / f"{MODEL_NAME}.joblib")
+threshold = json.load(open(REFERENCES / f"threshold_{MODEL_NAME}.json"))["threshold"]
 
 print(f"Model loaded — threshold: {threshold}")
 
@@ -145,9 +147,8 @@ def prepare_input(application: LoanApplication) -> pd.DataFrame:
 
     df = pd.DataFrame([data])
 
-    known_cat_cols = set(cat_features) | {"age_group"}
     for col in df.columns:
-        if df[col].dtype == object and col not in known_cat_cols:
+        if df[col].dtype == object and col != "age_group":
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
@@ -166,27 +167,7 @@ def health():
 def predict(application: LoanApplication):
     try:
         X = prepare_input(application)
-
-        catboost_feature_names = bundle["catboost"].feature_names_
-        X_raw = X.copy()
-
-        for col in catboost_feature_names:
-            if col not in X_raw.columns:
-                X_raw[col] = np.nan
-
-        for col in catboost_feature_names:
-            if col in cat_features:
-                X_raw[col] = X_raw[col].fillna("Unknown").astype(str)
-            else:
-                X_raw[col] = pd.to_numeric(X_raw[col], errors="coerce")
-
-        X_raw = X_raw[catboost_feature_names]
-
-        p_lgbm = bundle["lgbm"].predict_proba(X)[:, 1]
-        p_cb   = bundle["catboost"].predict_proba(X_raw)[:, 1]
-        meta   = np.column_stack([p_lgbm, p_cb])
-        proba  = float(bundle["meta"].predict_proba(meta)[0][1])
-
+        proba = float(model.predict_proba(X)[0][1])
         decision = int(proba >= threshold)
 
         return {

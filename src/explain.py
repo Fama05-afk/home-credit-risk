@@ -27,25 +27,32 @@ model        = joblib.load(MODELS_DIR / f"{model_name}.joblib")
 y_pred_proba = get_proba(model, X_test)
 print(f"Model: {model_name} — ROC-AUC: {roc_auc_score(y_test, y_pred_proba):.4f}")
 
-# Extract LightGBM and preprocessor depending on model type
-if isinstance(model, dict):
-    # Stacking bundle — SHAP on the LightGBM base model
-    lgbm_model   = model["lgbm"].named_steps["model"]
-    preprocessor = model["lgbm"].named_steps["preprocessor"]
-else:
-    # sklearn Pipeline
-    lgbm_model   = model.named_steps["model"]
-    preprocessor = model.named_steps["preprocessor"]
 
-X_test_enc  = preprocessor.transform(X_test)
+is_stacking = hasattr(model, "lgbm_pipeline")
+if is_stacking:
+    # SHAP on the LightGBM base model only
+    tree_model         = model.lgbm_pipeline.steps[-1][1]
+    preprocessing_steps = model.lgbm_pipeline.steps[:-1]
+else:
+    # last step is always the model, regardless of step names
+    tree_model         = model.steps[-1][1]
+    preprocessing_steps = model.steps[:-1]
+
+X_test_enc = X_test
+for _, step in preprocessing_steps:
+    X_test_enc = step.transform(X_test_enc)
+
 X_sample    = X_test_enc.sample(n=2000, random_state=42)
-explainer   = shap.TreeExplainer(lgbm_model)
+explainer   = shap.TreeExplainer(tree_model)
 shap_values = explainer.shap_values(X_sample)
 sv          = shap_values[1] if isinstance(shap_values, list) else shap_values
 
+plot_title = f"SHAP Feature Importance — {model_name} (LightGBM component)" if is_stacking \
+    else f"SHAP Feature Importance — {model_name}"
+
 plt.figure(figsize=(10, 10))
 shap.summary_plot(sv, X_sample, show=False)
-plt.title(f"SHAP Feature Importance — {model_name}")
+plt.title(plot_title)
 plt.tight_layout()
 plt.savefig(OUTPUT_PATH / f"shap_summary_{model_name}.png", dpi=150, bbox_inches="tight")
 plt.close()

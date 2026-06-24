@@ -40,9 +40,6 @@ preprocessor = ColumnTransformer(
     verbose_feature_names_out=False,
 ).set_output(transform="pandas")
 
-X_train_enc = preprocessor.fit_transform(X_train, y_train)
-X_val_enc   = preprocessor.transform(X_val)
-
 params = {
     "boosting_type":   "gbdt",
     "objective":       "binary",
@@ -64,23 +61,25 @@ params = {
 }
 
 model = lgb.LGBMClassifier(**params)
-model.fit(
-    X_train_enc, y_train,
-    eval_set=[(X_val_enc, y_val)],
-
-    callbacks=[
-        lgb.early_stopping(100, verbose=False),
-        lgb.log_evaluation(period=100),
-    ],
-)
 
 pipeline = Pipeline([
     ("preprocessor", preprocessor),
     ("model",        model),
 ])
 
-auc_train = roc_auc_score(y_train, model.predict_proba(X_train_enc)[:, 1])
-auc_val   = roc_auc_score(y_val,   model.predict_proba(X_val_enc)[:, 1])
+X_val_enc = pipeline.named_steps["preprocessor"].fit(X_train, y_train).transform(X_val) # pour pouvoir faire early stopping 
+
+pipeline.fit(
+    X_train, y_train,
+    model__eval_set=[(X_val_enc, y_val)],
+    model__callbacks=[
+        lgb.early_stopping(100, verbose=False),
+        lgb.log_evaluation(period=100),
+    ],
+)
+
+auc_train = roc_auc_score(y_train, pipeline.predict_proba(X_train)[:, 1])
+auc_val   = roc_auc_score(y_val,   pipeline.predict_proba(X_val)[:, 1])
 
 mlflow.set_tracking_uri("mlruns")
 mlflow.set_experiment("home_credit_risk")

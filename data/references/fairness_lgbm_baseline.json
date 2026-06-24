@@ -1,0 +1,26 @@
+{
+  "model_name": "lgbm_baseline",
+  "by_group": {
+    "selection_rate": {
+      "F": 0.1089,
+      "M": 0.1715
+    },
+    "false_positive_rate": {
+      "F": 0.0881,
+      "M": 0.1346
+    },
+    "false_negative_rate": {
+      "F": 0.6142,
+      "M": 0.5021
+    }
+  },
+  "difference": {
+    "selection_rate": 0.0626,
+    "false_positive_rate": 0.0465,
+    "false_negative_rate": 0.1121
+  },
+  "auc_by_gender": {
+    "F": 0.7714,
+    "M": 0.7792
+  }
+}

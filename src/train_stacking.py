@@ -1,10 +1,12 @@
 import joblib
 import mlflow
+import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from catboost import CatBoostClassifier
 import lightgbm as lgb
+from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold, train_test_split
@@ -12,6 +14,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 from category_encoders import TargetEncoder
+from model_utils import FillNACategorical, StackingClassifier
 
 PROCESSED_DIR = Path("data/processed")
 MODELS_DIR    = Path("models")
@@ -22,6 +25,7 @@ SENSITIVE_COL = "gender_clean"
 ORDINAL_COLS = ["age_group"]
 TARGET_COLS  = ["occupation_type", "education_type", "family_status",
                 "income_type", "organization_type"]
+
 
 train = pd.read_parquet(PROCESSED_DIR / "train.parquet")
 val   = pd.read_parquet(PROCESSED_DIR / "val.parquet")
@@ -36,7 +40,7 @@ print(f"Train: {X_train.shape[0]:,} · Val: {X_val.shape[0]:,}")
 cat_features = X_train.select_dtypes(include="object").columns.tolist()
 print(f"CatBoost categorical features ({len(cat_features)}): {cat_features}")
 
-def build_preprocessor():
+def build_lgbm_preprocessor():
     return ColumnTransformer(
         transformers=[
             ("ordinal", OrdinalEncoder(categories=[["young", "adult", "senior"]]), ORDINAL_COLS),
@@ -85,49 +89,41 @@ for fold, (train_idx, oof_idx) in enumerate(skf.split(X_train, y_train)):
     X_oof  = X_train.iloc[oof_idx]
     y_oof  = y_train.iloc[oof_idx]
 
-    es_idx_local = np.arange(len(X_fold))
     fit_idx, es_idx = train_test_split(
-        es_idx_local, test_size=0.1, random_state=42, stratify=y_fold
+        np.arange(len(X_fold)), test_size=0.1, random_state=42, stratify=y_fold
     )
-
     X_fit = X_fold.iloc[fit_idx]
     X_es  = X_fold.iloc[es_idx]
     y_fit = y_fold.iloc[fit_idx]
     y_es  = y_fold.iloc[es_idx]
 
-    # LightGBM — preprocessing inside fold (no leakage)
-    preprocessor = build_preprocessor()
-    X_fit_enc = preprocessor.fit_transform(X_fit, y_fit)
-    X_es_enc  = preprocessor.transform(X_es)
-    X_oof_enc = preprocessor.transform(X_oof)
-
-    lgbm_fold = lgb.LGBMClassifier(**lgbm_params)
-    lgbm_fold.fit(
-        X_fit_enc, y_fit,
-        eval_set=[(X_es_enc, y_es)],
-        callbacks=[
-            lgb.early_stopping(50, verbose=False),
-            lgb.log_evaluation(period=-1),
-        ],
+    lgbm_preprocessor = build_lgbm_preprocessor()
+    lgbm_model_fold = lgb.LGBMClassifier(**lgbm_params)
+    lgbm_pipeline_fold = Pipeline([
+        ("preprocessor", lgbm_preprocessor),
+        ("model",        lgbm_model_fold),
+    ])
+    X_es_enc = lgbm_pipeline_fold.named_steps["preprocessor"].fit(X_fit, y_fit).transform(X_es)
+    lgbm_pipeline_fold.fit(
+        X_fit, y_fit,
+        model__eval_set=[(X_es_enc, y_es)],
+        model__callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(period=-1)],
     )
-    oof_lgbm[oof_idx] = lgbm_fold.predict_proba(X_oof_enc)[:, 1]
+    oof_lgbm[oof_idx] = lgbm_pipeline_fold.predict_proba(X_oof)[:, 1]
 
-    # CatBoost — takes raw data, handles categoricals natively
-    X_fit_raw = X_fit.copy()
-    X_es_raw  = X_es.copy()
-    X_oof_raw = X_oof.copy()
-    for col in cat_features:
-        X_fit_raw[col] = X_fit_raw[col].fillna("Unknown")
-        X_es_raw[col]  = X_es_raw[col].fillna("Unknown")
-        X_oof_raw[col] = X_oof_raw[col].fillna("Unknown")
-
-    cb_fold = CatBoostClassifier(**catboost_params)
-    cb_fold.fit(
-        X_fit_raw, y_fit,
-        cat_features=cat_features,
-        eval_set=(X_es_raw, y_es),
+    cb_fillna = FillNACategorical(cat_features)
+    cb_model_fold = CatBoostClassifier(**catboost_params)
+    cb_pipeline_fold = Pipeline([
+        ("fillna", cb_fillna),
+        ("model",  cb_model_fold),
+    ])
+    X_es_filled = cb_pipeline_fold.named_steps["fillna"].transform(X_es)
+    cb_pipeline_fold.fit(
+        X_fit, y_fit,
+        model__cat_features=cat_features,
+        model__eval_set=(X_es_filled, y_es),
     )
-    oof_catboost[oof_idx] = cb_fold.predict_proba(X_oof_raw)[:, 1]
+    oof_catboost[oof_idx] = cb_pipeline_fold.predict_proba(X_oof)[:, 1]
 
     print(f"  LightGBM OOF AUC : {roc_auc_score(y_oof, oof_lgbm[oof_idx]):.4f}")
     print(f"  CatBoost OOF AUC : {roc_auc_score(y_oof, oof_catboost[oof_idx]):.4f}")
@@ -141,20 +137,16 @@ meta_train = np.column_stack([oof_lgbm, oof_catboost])
 meta_model = LogisticRegression(random_state=42)
 meta_model.fit(meta_train, y_train)
 
-# Val evaluation — use trained base models
 lgbm_pipeline  = joblib.load(MODELS_DIR / "lgbm_baseline.joblib")
-catboost_model = joblib.load(MODELS_DIR / "catboost_baseline.joblib")
+catboost_pipeline = joblib.load(MODELS_DIR / "catboost_baseline.joblib")
 
-X_val_raw = X_val.copy()
-for col in cat_features:
-    X_val_raw[col] = X_val_raw[col].fillna("Unknown")
+stacking_pipeline = StackingClassifier(
+    lgbm_pipeline=lgbm_pipeline,
+    catboost_pipeline=catboost_pipeline,
+    meta_model=meta_model,
+)
 
-val_lgbm     = lgbm_pipeline.predict_proba(X_val)[:, 1]
-val_catboost = catboost_model.predict_proba(X_val_raw)[:, 1]
-meta_val     = np.column_stack([val_lgbm, val_catboost])
-val_stacking = meta_model.predict_proba(meta_val)[:, 1]
-
-auc_val = roc_auc_score(y_val, val_stacking)
+auc_val = roc_auc_score(y_val, stacking_pipeline.predict_proba(X_val)[:, 1])
 print(f"Stacking AUC (val)   : {auc_val:.4f}")
 
 mlflow.set_tracking_uri("mlruns")
@@ -167,12 +159,7 @@ with mlflow.start_run(run_name="stacking_lgbm_catboost"):
     mlflow.log_metric("oof_auc_lgbm",     oof_auc_lgbm)
     mlflow.log_metric("oof_auc_catboost", oof_auc_catboost)
     mlflow.log_metric("roc_auc_val",      auc_val)
+    mlflow.sklearn.log_model(stacking_pipeline, name="pipeline")
 
-bundle = {
-    "lgbm":         lgbm_pipeline,
-    "catboost":     catboost_model,
-    "meta":         meta_model,
-    "cat_features": cat_features,
-}
-joblib.dump(bundle, MODELS_DIR / "stacking_model.joblib")
+joblib.dump(stacking_pipeline, MODELS_DIR / "stacking_model.joblib")
 print(f"Stacking model saved → models/stacking_model.joblib")
