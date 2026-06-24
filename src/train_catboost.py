@@ -44,7 +44,7 @@ params = {
 model = CatBoostClassifier(**params)
 
 pipeline = Pipeline([
-    ("fillna", FillNACategorical(cat_features)),
+    ("fillna", FillNACategorical(cat_features, feature_order=X_train.columns.tolist())),
     ("model",  model),
 ])
 

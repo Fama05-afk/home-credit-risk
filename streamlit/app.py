@@ -35,68 +35,105 @@ def render_prediction_page():
     st.title("Prédiction de risque de défaut")
     st.markdown("Renseignez les informations du client pour obtenir une prédiction.")
 
-    with st.form("prediction_form"):
-        st.subheader("Informations financières")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            income_amount = st.number_input("Revenu annuel (€)", min_value=0.0, value=202500.0, step=1000.0)
-        with col2:
-            credit_amount = st.number_input("Montant du crédit (€)", min_value=0.0, value=406597.0, step=1000.0)
-        with col3:
-            annuity_amount = st.number_input("Annuité mensuelle (€)", min_value=0.0, value=24700.0, step=100.0)
+    st.subheader("Informations financières")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        income_amount = st.number_input("Revenu annuel (€)", min_value=0.0, value=30000.0, step=1000.0)
+    with col2:
+        credit_amount = st.number_input("Montant du crédit (€)", min_value=0.0, value=900000.0, step=1000.0)
+    with col3:
+        annuity_amount = st.number_input("Annuité mensuelle (€)", min_value=0.0, value=80000.0, step=100.0)
+    with col4:
+        amt_goods_price = st.number_input("Prix du bien financé (€)", min_value=0.0, value=920000.0, step=1000.0)
 
+    ratio_income_credit = income_amount / credit_amount if credit_amount else 0.0
+    credit_to_annuity_ratio = credit_amount / annuity_amount if annuity_amount else 0.0
+    credit_to_goods_ratio = credit_amount / amt_goods_price if amt_goods_price else 0.0
+
+    st.caption(
+        f"Ratio revenu/crédit : **{ratio_income_credit:.3f}** · "
+        f"Ratio crédit/annuité : **{credit_to_annuity_ratio:.1f}** · "
+        f"Ratio crédit/prix du bien : **{credit_to_goods_ratio:.3f}**"
+    )
+
+    st.divider()
+
+    with st.form("prediction_form"):
         st.subheader("Informations personnelles")
-        col4, col5, col6 = st.columns(3)
-        with col4:
-            age_years = st.slider("Âge", min_value=18, max_value=70, value=35)
-            age_group = "young" if age_years < 30 else "adult" if age_years <= 50 else "senior"
+        col5, col6, col7 = st.columns(3)
         with col5:
-            is_employed = st.selectbox("Statut emploi", [1, 0], format_func=lambda x: "Employé" if x == 1 else "Non employé")
-            days_employed = st.number_input("Jours d'emploi (négatif)", value=-1000.0, step=100.0) if is_employed else None
+            age_years = st.slider("Âge", min_value=18, max_value=70, value=22)
+            age_group = "young" if age_years < 30 else "adult" if age_years <= 50 else "senior"
         with col6:
-            owns_realty = st.selectbox("Propriétaire immobilier", [0, 1], format_func=lambda x: "Oui" if x == 1 else "Non")
-            owns_car = st.selectbox("Propriétaire véhicule", [0, 1], format_func=lambda x: "Oui" if x == 1 else "Non")
+            is_employed = st.selectbox("Statut emploi", [1, 0], index=1, format_func=lambda x: "Employé" if x == 1 else "Non employé")
+            days_employed = st.number_input("Jours d'emploi (négatif)", value=-1000.0, step=100.0) if is_employed else None
+        with col7:
+            owns_realty = st.selectbox("Propriétaire immobilier", [0, 1], index=0, format_func=lambda x: "Oui" if x == 1 else "Non")
+            owns_car = st.selectbox("Propriétaire véhicule", [0, 1], index=0, format_func=lambda x: "Oui" if x == 1 else "Non")
 
         st.subheader("Informations sociales")
-        col7, col8, col9 = st.columns(3)
-        with col7:
+        col8, col9, col10 = st.columns(3)
+        with col8:
             education_type = st.selectbox("Niveau d'éducation", [
-                "Secondary / secondary special",
-                "Higher education",
-                "Incomplete higher",
                 "Lower secondary",
+                "Secondary / secondary special",
+                "Incomplete higher",
+                "Higher education",
                 "Academic degree",
             ])
-        with col8:
-            family_status = st.selectbox("Situation familiale", [
-                "Married", "Single / not married", "Civil marriage",
-                "Separated", "Widow",
+            occupation_type = st.selectbox("Profession", [
+                "Low-skill Laborers", "Laborers", "Core staff", "Sales staff", "Managers", "Drivers",
+                "High skill tech staff", "Accountants", "Medicine staff",
+                "Security staff", "Cooking staff", "Cleaning staff",
+                "Private service staff", "Waiters/barmen staff",
+                "Secretaries", "Realty agents", "HR staff", "IT staff",
             ])
         with col9:
-            cnt_children = st.number_input("Nombre d'enfants", min_value=0, max_value=10, value=0)
-            cnt_fam_members = st.number_input("Membres du foyer", min_value=1, max_value=15, value=2)
+            family_status = st.selectbox("Situation familiale", [
+                "Single / not married", "Married", "Civil marriage",
+                "Separated", "Widow",
+            ])
+            organization_type = st.selectbox("Secteur d'activité", [
+                "Business Entity Type 3", "Business Entity Type 2", "Business Entity Type 1",
+                "Self-employed", "Government", "School", "Kindergarten", "Medicine",
+                "Construction", "Trade: type 7", "Military", "Bank", "Police",
+                "Transport: type 4", "Housing", "Restaurant", "Industry: type 9",
+                "Security Ministries", "University", "XNA", "Other",
+            ])
+        with col10:
+            cnt_children = st.number_input("Nombre d'enfants", min_value=0, max_value=10, value=4)
+            cnt_fam_members = st.number_input("Membres du foyer", min_value=1, max_value=15, value=6)
 
         st.subheader("Scores externes")
-        col10, col11, col12 = st.columns(3)
-        with col10:
-            ext_source_2 = st.slider("EXT_SOURCE_2", 0.0, 1.0, 0.6, 0.01)
+        col11, col12, col13 = st.columns(3)
         with col11:
-            ext_source_3 = st.slider("EXT_SOURCE_3", 0.0, 1.0, 0.5, 0.01)
+            ext_source_2 = st.slider("EXT_SOURCE_2", 0.0, 1.0, 0.02, 0.01)
         with col12:
-            region_rating = st.selectbox("Note région", [1, 2, 3])
+            ext_source_3 = st.slider("EXT_SOURCE_3", 0.0, 1.0, 0.02, 0.01)
+        with col13:
+            region_rating = st.selectbox("Note région", [1, 2, 3], index=2)
 
         st.subheader("Historique bureau")
-        col13, col14, col15 = st.columns(3)
-        with col13:
-            bureau_credit_count = st.number_input("Nombre de crédits bureau", min_value=0, value=3)
-            bureau_active_count = st.number_input("Crédits actifs", min_value=0, value=1)
+        col14, col15, col16 = st.columns(3)
         with col14:
-            bureau_debt_total = st.number_input("Dette totale bureau (€)", min_value=0.0, value=50000.0, step=1000.0)
-            bureau_overdue_max = st.number_input("Retard max bureau (jours)", min_value=0.0, value=0.0)
+            bureau_credit_count = st.number_input("Nombre de crédits bureau", min_value=0, value=12)
+            bureau_active_count = st.number_input("Crédits actifs", min_value=0, value=10)
         with col15:
-            debt_credit_ratio = st.slider("Ratio dette/crédit", 0.0, 1.0, 0.3, 0.01)
-            overdue_debt_ratio = st.slider("Ratio retard/dette", 0.0, 1.0, 0.0, 0.01)
-            loan_types_bureau = st.number_input("Types de crédit", min_value=0, value=2)
+            bureau_debt_total = st.number_input("Dette totale bureau (€)", min_value=0.0, value=850000.0, step=1000.0)
+            bureau_overdue_max = st.number_input("Retard max bureau (jours)", min_value=0.0, value=90.0)
+        with col16:
+            debt_credit_ratio = st.slider("Ratio dette/crédit", 0.0, 1.0, 0.98, 0.01)
+            overdue_debt_ratio = st.slider("Ratio retard/dette", 0.0, 1.0, 0.5, 0.01)
+            loan_types_bureau = st.number_input("Types de crédit", min_value=0, value=5)
+
+        st.subheader("Historique de remboursement")
+        col17, col18, col19 = st.columns(3)
+        with col17:
+            inst_late_ratio = st.slider("Ratio de paiements en retard", 0.0, 1.0, 0.8, 0.01)
+        with col18:
+            prev_credit_ratio = st.slider("Ratio de crédits précédents bien remboursés", 0.0, 1.0, 0.2, 0.01)
+        with col19:
+            cc_utilization_avg = st.slider("Taux d'utilisation moyen carte de crédit", 0.0, 1.0, 0.95, 0.01)
 
         submitted = st.form_submit_button("Prédire", use_container_width=True)
 
@@ -107,6 +144,9 @@ def render_prediction_page():
         "income_amount": income_amount,
         "credit_amount": credit_amount,
         "annuity_amount": annuity_amount,
+        "ratio_income_credit": ratio_income_credit,
+        "credit_to_annuity_ratio": credit_to_annuity_ratio,
+        "credit_to_goods_ratio": credit_to_goods_ratio,
         "age_years": float(age_years),
         "age_group": age_group,
         "days_employed": float(days_employed) if days_employed else None,
@@ -116,7 +156,9 @@ def render_prediction_page():
         "cnt_children": float(cnt_children),
         "cnt_fam_members": float(cnt_fam_members),
         "education_type": education_type,
+        "occupation_type": occupation_type,
         "family_status": family_status,
+        "organization_type": organization_type,
         "region_rating": float(region_rating),
         "ext_source_2": ext_source_2,
         "ext_source_3": ext_source_3,
@@ -127,6 +169,9 @@ def render_prediction_page():
         "debt_credit_ratio": debt_credit_ratio,
         "overdue_debt_ratio": overdue_debt_ratio,
         "loan_types_bureau": float(loan_types_bureau),
+        "inst_late_ratio": inst_late_ratio,
+        "prev_credit_ratio": prev_credit_ratio,
+        "cc_utilization_avg": cc_utilization_avg,
     }
 
     try:

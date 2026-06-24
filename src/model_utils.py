@@ -4,8 +4,9 @@ from sklearn.base import BaseEstimator, ClassifierMixin, TransformerMixin
 
 
 class FillNACategorical(BaseEstimator, TransformerMixin):
-    def __init__(self, cat_features):
+    def __init__(self, cat_features, feature_order=None):
         self.cat_features = cat_features
+        self.feature_order = feature_order
 
     def fit(self, X, y=None):
         return self
@@ -14,6 +15,8 @@ class FillNACategorical(BaseEstimator, TransformerMixin):
         X = X.copy()
         for col in self.cat_features:
             X[col] = X[col].fillna("Unknown")
+        if self.feature_order is not None:
+            X = X[self.feature_order]
         return X
 
 
